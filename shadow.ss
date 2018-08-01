@@ -1,16 +1,18 @@
 #lang racket
+(define c '(hello))
 (require readline)
+(require readline/rep-start)
 
 ;; basics
-
-(define (atom? a)
-  (or (symbol? a) (number? a)))
 
 (define (lat? lat)
   (cond
     ((null? lat) #t)
-    ((atom? (car lat)) (lat? (cdr lat)))
+    ((symbol? (car lat)) (lat? (cdr lat)))
     (else #f)))
+
+(define (atom? a)
+  (or (symbol? a) (number? a)))
 
 (define (length lat)
     (cond
@@ -35,7 +37,7 @@
 
 (define (rember lat a)
   (cond ((null? lat) '())
-        ((eq? (car lat) a) (cdr lat))
+        ((eq? (car lat) a) (rember (cdr lat) a))
         (else (cons
                (car lat)
                (rember (cdr lat) a)))))
@@ -117,15 +119,10 @@
         ((> x y) #f)
         (else #t)))
 
-(define (equan? x y)
-  (cond ((and (number? x) (number? y)) (= x y))
-        ((and (symbol? x) (symbol? y)) (eq? x y))
-        (else #f)))
-
-(define (% x y)
+(define (/ x y)
   (cond ((= x y) 1)
         ((< x y) 0)
-        (else (add1 (% (- x y) y)))))
+        (else (add1 (/ (- x y) y)))))
         
 (define (^ x1 y)
   (cond ((zero? y) 1)
@@ -177,7 +174,7 @@
 
 (define (rember* lat a)
   (cond ((null? lat) '())
-        ((symbol? (car lat))
+        ((atom? (car lat))
          (cond ((eq? (car lat) a) (rember* (cdr lat) a))
                (else (cons (car lat) (rember* (cdr lat) a)))))
         (else (cons (rember* (car lat) a) (rember* (cdr lat) a)))))
@@ -231,6 +228,13 @@
              (member* (cdr lat) a)))
         (else (or (member* (car lat) a) (member* (cdr lat) a)))))
 
+;; equaling
+
+(define (equan? x y)
+  (cond ((and (number? x) (number? y)) (= x y))
+        ((and (symbol? x) (symbol? y)) (eq? x y))
+        (else #f)))
+
 (define (eqlist? l1 l2)
   (cond ((and (null? l1) (null? l2)) #t)
         ((or (null? l1) (null? l2)) #f)
@@ -242,6 +246,117 @@
   (cond ((and (atom? s1) (atom? s2)) (equan? s1 s2))
         ((or (atom? s1) (atom? s2)) #f)
         (else (eqlist? (cdr s1) (cdr s2)))))
+
+(define (remberS lat s)
+  (cond ((null? lat) '())
+        ((equal? (car lat) s) (remberS (cdr lat) s))
+        (else (cons (car lat) (remberS (cdr lat) s)))))
+
+;; helpers
+
+(define (numbered? s)
+  (cond ((atom? s) (number? s))
+        ((or (eq? (car s) 'x) (eq? (car s) '+) (eq? (car s) '-) (eq? (car s) '/) (eq? (car s) '^))
+         (and (numbered? (car (cdr s)))
+          (numbered? (car (cdr (cdr s))))))
+        (else #f)))
+
+(define (operator s)
+  (car s))
+
+(define (first-sub-exp s)
+  (car (cdr s)))
+
+(define (second-sub-exp s)
+  (car (cdr (cdr s))))
+
+(define (value s)
+  (cond ((number? s) s)
+        (else
+         (cond
+          ((eq? (operator s) '+)
+           (+ (value (first-sub-exp s)) (value (second-sub-exp s))))
+          ((eq? (operator s) '-)
+           (- (value (first-sub-exp s)) (value (second-sub-exp s))))
+          ((eq? (operator s) 'x)
+           (x (value (first-sub-exp s)) (value (second-sub-exp s))))       
+          ((eq? (operator s) '/)
+           (/ (value (first-sub-exp s)) (value (second-sub-exp s))))
+          ((eq? (operator s) '^)
+           (^ (value (first-sub-exp s)) (value (second-sub-exp s))))))))
+
+;; shadows
+
+(define (new-zero lat)
+  (null? lat))
+
+(define (new-add1 lat)
+  (cons '() lat))
+
+(define (new-sub1 lat)
+  (cdr lat))
+
+(define (new-+ a b)
+  (cond ((new-zero b) a)
+        (else (new-add1 (new-+ a (new-sub1 b))))))
+
+;; friends and relatives
+
+(define (set? lat)
+  (cond ((null? lat) #t)
+        ((member? (cdr lat) (car lat)) #f)
+        (else (set? (cdr lat)))))
+
+(define (makeset lat)
+  (cond ((null? lat) '())
+        (else (cons
+               (car lat)
+               (makeset (rember (cdr lat) (car lat)))))))
+
+(define (subset? s1 s2)
+  (cond ((null? s2) #t)
+        (else (and (member? s1 (car s2)) (subset? s1 (cdr s2))))))
+
+(define (eqset? s1 s2)
+  (and (eq? (length s1) (length s2)) (subset? s1 s2)))
+
+(define (intersect? s1 s2)
+  (cond ((null? s2) #f)
+        (else (or (member? s1 (car s2)) (intersect? s1 (cdr s2))))))
+
+(define (intersect s1 s2)
+  (cond ((null? s2) '())
+        ((member? s1 (car s2)) (cons (car s2) (intersect s1 (cdr s2))))
+        (else (intersect s1 (cdr s2)))))
+
+(define (union s1 s2)
+  (cond ((null? s1) s2)
+        ((member? s2 (car s1)) (union (cdr s1) s2))
+        (else (cons (car s1) (union (cdr s1) s2)))))
+
+(define (intersectall s)
+  (cond ((null? (cdr s)) (car s))
+        (else (intersect (car s) (intersectall (cdr s))))))
+
+(define (a-pair p)
+  (cond ((null? p) #f)
+        ((atom? p) #f)
+        ((null? (car p)) #f)
+        ((null? (car (cdr p))) #f)
+        ((null? (cdr (cdr p))) #t)
+        (else #f)))
+
+(define (first p)
+  (car p))
+
+(define (second p)
+  (car (cdr p)))
+
+(define (third p)
+  (cdr (cdr p)))
+
+(define (build a b)
+  (cons a (cons b '())))
 
 ;; other
 
