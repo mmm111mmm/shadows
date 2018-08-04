@@ -123,7 +123,13 @@
   (cond ((= x y) 1)
         ((< x y) 0)
         (else (add1 (/ (- x y) y)))))
-        
+
+
+(define (% x y)
+  (cond ((= x y) 0)
+        ((< x y) (- y x))
+        (else (% (- x y) y))))
+
 (define (^ x1 y)
   (cond ((zero? y) 1)
         (else (x x1 (^ x1 (sub1 y))))))
@@ -358,7 +364,230 @@
 (define (build a b)
   (cons a (cons b '())))
 
-;; other
+(define (fun? rel)
+  (set? (firsts rel)))
+
+(define (revrel rel)
+  (cond ((null? rel) '())
+        (else (cons
+               (revpair (car rel))
+               (revrel (cdr rel))))))
+
+(define (revpair pair)
+  (build (second pair) (first pair)))
+
+(define (one-to-one? rel)
+  ((fun? (revrel rel))))
+
+;; lambda the ultimate
+
+(define (old-rember-f l a test?)
+  (cond ((null? l) '())
+        ((test? (car l) a) (old-rember-f (cdr l) a test?))
+        (else (cons (car l) (old-rember-f (cdr l) a test?)))))
+
+(define (eq?-c a)
+  (lambda (x) (eq? x a)))
+
+(define eq-salad
+  (eq?-c 'salad))
+
+(define (rember-f test?)
+  (lambda (l a)
+    (cond ((null? l) '())
+          ((test? (car l) a) ((rember-f test?) (cdr l) a))
+          (else (cons (car l) ((rember-f test?) (cdr l) a))))))
+
+(define (insertL-f test?)
+  (lambda (l old new)
+    (cond ((null? l) '())
+          ((test? (car l) old)
+           (cons new (cons (car l) (cdr l))))
+          (else
+           (cons (car l) ((insertL-f test?) (cdr l) old new))))))
+
+(define (insertR-f test?)
+  (lambda (l old new)
+    (cond ((null? l) '())
+          ((test? (car l) old)
+           (cons (car l) (cons new (cdr l))))
+          (else
+           (cons (car l) ((insertR-f test?) (cdr l) old new))))))
+
+(define (seqL l old new)
+  (cons new (cons old l)))
+
+(define (seqR l old new)
+  (cons old (cons new l)))
+
+(define (seqS l old new)
+  (cons new l))
+
+(define (seqrem l old new)
+  l)
+
+(define (insert-g test? seq)
+  (lambda (l old new)
+    (cond ((null? l) '())
+          ((test? (car l) old)
+           (seq (cdr l) old new))
+          (else
+           (cons (car l) ((insert-g test? seq) (cdr l) old new))))))
+
+
+(define (insert-g-new test? seq)
+  (lambda (l old new)
+    (cond ((null? l) '())
+          ((test? (car l) old)
+           (seq old new ((insert-g-new test? seq) (cdr l) old new)))
+          (else
+           (cons (car l) ((insert-g-new test? seq) (cdr l) old new))))))
+
+(define rember-new (lambda (l a) ((insert-g equal? seqrem) l a #f)))
+(define insertL-new (insert-g equal? seqL))
+(define insertR-new (insert-g equal? seqR))
+
+(define (atom-to-function x)
+  (cond
+    ((eq? x '+) +)
+    ((eq? x '-) -)
+    ((eq? x 'x) x)    
+    (else /)))
+
+(define (value-new s op)
+  (cond ((number? s) s)
+        (else
+         ((op (operator s))
+          (value (first-sub-exp s))
+          (value (second-sub-exp s))))))
+
+(define (multirember&co lat a col)
+  (cond ((null? lat) (col '() '()))
+        ((eq? (car lat) a)
+         (multirember&co (cdr lat) a
+                           (lambda (newval seen)
+                             (col newval
+                                  (cons (car lat) seen)))))
+        (else
+         (multirember&co (cdr lat) a
+                         (lambda (newval seen)
+                           (col (cons (car lat) newval)
+                                seen))))))
+
+(define (multiinsertLR lat oldL oldR new)
+  (cond ((null? lat) '())
+        ((eq? (car lat) oldL)
+         (cons new (cons oldL (multiinsertLR (cdr lat) oldL oldR new))))
+        ((eq? (car lat) oldR)
+         (cons oldR (cons new (multiinsertLR (cdr lat) oldL oldR new))))
+        (else
+         (cons (car lat) (multiinsertLR (cdr lat) oldL oldR new)))))
+
+(define (multiinsertLR&co lat oldL oldR new col)
+  (cond ((null? lat) (col '() 0 0))
+        ((eq? (car lat) oldR)
+         (multiinsertLR&co (cdr lat) oldL oldR new
+                           (lambda (newlat L R)
+                             (col (cons oldR (cons new newlat)) (add1 R) L))))
+        ((eq? (car lat) oldL)
+         (multiinsertLR&co (cdr lat) oldL oldR new
+                           (lambda (newlat L R)
+                             (col (cons new (cons oldL newlat)) R (add1 L)))))
+        (else
+         (multiinsertLR&co (cdr lat) oldL oldR new
+                           (lambda (newlat L R)
+                             (col (cons (car lat) newlat) R L))))))
+
+(define (even? n)
+  (= (% n 2) 0))
+
+(define (evens-only* sexp)
+  (cond ((null? sexp) '())
+        ((atom? (car sexp))
+         (cond ((even? (car sexp))
+                (cons (car sexp) (evens-only* (cdr sexp))))
+               (else
+                (evens-only* (cdr sexp)))))
+        (else
+         (cons (evens-only* (car sexp)) (evens-only* (cdr sexp))))))
+
+(define (evens-only*&co sexp col)
+  (cond ((null? sexp) (col '() 1 0))
+        ((atom? (car sexp))
+         (cond ((even? (car sexp))
+                 (evens-only*&co
+                  (cdr sexp)
+                  (lambda (evens evens-product odd-sum)
+                    (col (cons (car sexp) evens)
+                         (x (car sexp) evens-product)
+                         odd-sum))))
+                (else
+                 (evens-only*&co
+                  (cdr sexp)
+                  (lambda (evens evens-product odd-sum)
+                    (col evens
+                         evens-product
+                         (+ (car sexp) odd-sum)))))))
+        (else
+         (evens-only*&co (car sexp)
+                         (lambda (evens evens-product odd-sum)
+                           (evens-only*&co
+                            (cdr sexp)
+                            (lambda (evens1 evens-product1 odd-sum1)
+                              (col (prepend evens1 evens)
+                                   (x evens-product1 evens-product)
+                                   (+ odd-sum odd-sum1)))))))))
+
+;; and again
+
+(define (shift x)
+  (build (first (first x))
+         (build (second (first x)) (second x))))
+
+(define (align pora)
+  (cond
+    ((atom? pora) pora)
+    ((a-pair (first pora))
+     (align (shift pora)))
+    (else (build
+           (first pora)
+           (align (second pora))))))
+    
+(define (eternity x)
+  (eternity x))
+
+(lambda (l)
+  (cond ((null? l) 0)
+        (else (add1
+               ((lambda (l)
+                 (cond ((null? l) 0)
+                       (else (add1
+                              ((lambda (l)
+                                (cond ((null? l) 0)
+                                      (else (eternity l))))
+                              (cdr l))))))
+               (cdr l))))))
+
+((lambda (len)
+   (lambda (l)
+     (cond ((null? l) 0)
+           (else (add1 (len (cdr l)))))))
+ eternity)
+
+
+((lambda (mk-len)
+  (mk-len eternity))
+ (lambda (len)
+   (lambda (l)
+     (cond ((null? l) 0)
+           (else (add1 (len (cdr l))))))))
+
+;; OTHER
+
+(define (prepend one two)
+    (cond ((null? two) one)
+          (else 
+           (cons (car two) (prepend one (cdr two))))))
 
 (define (reverse_numbers n)
   (cond ((eq? n 0) '())
