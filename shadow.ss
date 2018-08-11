@@ -1,7 +1,10 @@
 #lang racket
+
 (define c '(hello))
 (require readline)
 (require readline/rep-start)
+(require 2htdp/universe)
+(require 2htdp/image)
 
 ;; basics
 
@@ -92,55 +95,55 @@
 
 ;; numbers
 
-(define (+ x y)
-    (cond ((zero? y) x)
-          (else (add1 (+ x (sub1 y))))))
+;(define (+ x y)
+ ;   (cond ((zero? y) x)
+  ;        (else (add1 (+ x (sub1 y))))))
 
-(define (- x y)
-  (cond ((zero? y) x)
-        (else (sub1 (- x (sub1 y))))))
+;(define (- x y)
+ ; (cond ((zero? y) x)
+  ;      (else (sub1 (- x (sub1 y))))))
 
-(define (x x1 y)
-  (cond ((zero? y) 0)
-        (else (+ x1 (x x1 (sub1 y))))))
+;(define (x x1 y)
+ ; (cond ((zero? y) 0)
+  ;      (else (+ x1 (x x1 (sub1 y))))))
 
-(define (> x y)
-  (cond ((zero? x) #f)
-        ((zero? y) #t)
-        (else (> (sub1 x) (sub1 y)))))
+;(define (> x y)
+;  (cond ((zero? x) #f)
+ ;       ((zero? y) #t)
+  ;      (else (> (sub1 x) (sub1 y)))))
 
-(define (< x y)
-  (cond ((zero? y) #f)
-        ((zero? x) #t)
-        (else (< (sub1 x) (sub1 y)))))
+;(define (< x y)
+ ; (cond ((zero? y) #f)
+  ;      ((zero? x) #t)
+   ;     (else (< (sub1 x) (sub1 y)))))
 
-(define (= x y)
-  (cond ((< x y) #f)
-        ((> x y) #f)
-        (else #t)))
+;(define (= x y)
+ ; (cond ((< x y) #f)
+  ;      ((> x y) #f)
+   ;     (else #t)))
 
-(define (/ x y)
-  (cond ((= x y) 1)
-        ((< x y) 0)
-        (else (add1 (/ (- x y) y)))))
+;(define (/ x y)
+ ; (cond ((= x y) 1)
+  ;      ((< x y) 0)
+   ;     (else (add1 (/ (- x y) y)))))
 
 
-(define (% x y)
-  (cond ((= x y) 0)
-        ((< x y) (- y x))
-        (else (% (- x y) y))))
+;(define (% x y)
+ ; (cond ((= x y) 0)
+  ;      ((< x y) (- y x))
+   ;     (else (% (- x y) y))))
 
-(define (^ x1 y)
-  (cond ((zero? y) 1)
-        (else (x x1 (^ x1 (sub1 y))))))
+;(define (^ x1 y)
+ ; (cond ((zero? y) 1)
+  ;      (else (x x1 (^ x1 (sub1 y))))))
 
-(define (powerlist_ x y)
-  (cond ((zero? y) '())
-        (else
-         (cons (^ x y)
-               (powerlist_ x (sub1 y))))))
+;(define (powerlist_ x y)
+ ; (cond ((zero? y) '())
+  ;      (else
+   ;      (cons (^ x y)
+    ;           (powerlist_ x (sub1 y))))))
 
-(define (powerlist x y) (reverse (powerlist_ x y)))
+;(define (powerlist x y) (reverse (powerlist_ x y)))
 
 (define (addtup tup)
   (cond ((null? tup) 0)
@@ -285,11 +288,11 @@
           ((eq? (operator s) '-)
            (- (value (first-sub-exp s)) (value (second-sub-exp s))))
           ((eq? (operator s) 'x)
-           (x (value (first-sub-exp s)) (value (second-sub-exp s))))       
+           (* (value (first-sub-exp s)) (value (second-sub-exp s))))       
           ((eq? (operator s) '/)
            (/ (value (first-sub-exp s)) (value (second-sub-exp s))))
           ((eq? (operator s) '^)
-           (^ (value (first-sub-exp s)) (value (second-sub-exp s))))))))
+           (expt (value (first-sub-exp s)) (value (second-sub-exp s))))))))
 
 ;; shadows
 
@@ -458,8 +461,8 @@
   (cond ((number? s) s)
         (else
          ((op (operator s))
-          (value (first-sub-exp s))
-          (value (second-sub-exp s))))))
+          (value-new (first-sub-exp s) op)
+          (value-new (second-sub-exp s) op)))))
 
 (define (multirember&co lat a col)
   (cond ((null? lat) (col '() '()))
@@ -499,7 +502,7 @@
                              (col (cons (car lat) newlat) R L))))))
 
 (define (even? n)
-  (= (% n 2) 0))
+  (= (quotient n 2) 0))
 
 (define (evens-only* sexp)
   (cond ((null? sexp) '())
@@ -519,7 +522,7 @@
                   (cdr sexp)
                   (lambda (evens evens-product odd-sum)
                     (col (cons (car sexp) evens)
-                         (x (car sexp) evens-product)
+                         (* (car sexp) evens-product)
                          odd-sum))))
                 (else
                  (evens-only*&co
@@ -535,7 +538,7 @@
                             (cdr sexp)
                             (lambda (evens1 evens-product1 odd-sum1)
                               (col (prepend evens1 evens)
-                                   (x evens-product1 evens-product)
+                                   (* evens-product1 evens-product)
                                    (+ odd-sum odd-sum1)))))))))
 
 ;; and again
@@ -556,7 +559,7 @@
 (define (eternity x)
   (eternity x))
 
-(lambda (l)
+((lambda (l)
   (cond ((null? l) 0)
         (else (add1
                ((lambda (l)
@@ -567,22 +570,203 @@
                                       (else (eternity l))))
                               (cdr l))))))
                (cdr l))))))
+ '(a b))
 
-((lambda (len)
-   (lambda (l)
-     (cond ((null? l) 0)
-           (else (add1 (len (cdr l)))))))
- eternity)
+(
+ ((lambda (len)
+    (lambda (l)
+      (cond ((null? l) 0)
+            (else (add1 (len (cdr l)))))))
+  eternity
+ )
+ '()
+)
 
 
-((lambda (mk-len)
-  (mk-len eternity))
- (lambda (len)
-   (lambda (l)
-     (cond ((null? l) 0)
-           (else (add1 (len (cdr l))))))))
+(
+ ((lambda (mk-len)
+   (mk-len
+    (mk-len
+     (mk-len
+      (mk-len eternity)))))
+  (lambda (len)
+    (lambda (l)
+      (cond ((null? l) 0)
+            (else (add1 (len (cdr l)))))))
+ )
+ '(a b c)
+)
+
+(
+ ((lambda (mk-len)
+   (mk-len mk-len))
+  (lambda (mk-len)
+    (lambda (l)
+      (cond ((null? l) 0)
+            (else (add1 ((mk-len mk-len) (cdr l)))))))
+ )
+ '(a b c d e f g h i j k l m)
+)
+
+
+(
+ ((lambda (mk-len)
+   (mk-len mk-len))
+  (lambda (mk-len)
+    ((lambda (len)
+       (lambda (l)
+         (cond ((null? l) 0)
+            (else (add1 (len (cdr l)))))))
+     (lambda (x) ((mk-len mk-len) x)))))
+ '(a b c d e f g h i j k l m)
+)
+
+;; What is the value
+
+(define new-entry build)
+
+(define (lookup-in-entry name entry entry-f)
+  (lookup-in-entry-helper name (first entry) (second entry) entry-f))
+
+(define (lookup-in-entry-helper name names values entry-f)
+  (cond ((null? names) (entry-f name))
+        ((eq? name (car names)) (car values))
+        (else (lookup-in-entry-helper name (cdr names) (cdr values) entry-f))))
+
+(define extend-table cons)
+
+(define (lookup-in-table name table table-f)
+  (cond ((null? table) (table-f name))
+        (else (lookup-in-entry name
+                               (car table)
+                               (lambda (name)
+                                 (lookup-in-table name (cdr table) table-f))))))
+
+(define (atom-to-action atom)
+  (cond ((number? atom) *const)
+        ((eq? atom 'cons) *const)
+        ((eq? atom 'cdr) *const)
+        ((eq? atom 'null?) *const)
+        ((eq? atom 'add1) *const)
+        ((eq? atom 'sub1) *const)
+        ((eq? atom 'zero?) *const)
+        ((eq? atom 'number?) *const)
+        ((eq? atom 'eq?) *const)
+        ((eq? atom 'atom?) *const)
+        ((eq? atom #f) *const)
+        ((eq? atom #t) *const)
+        (else *identifier)))
+
+(define (list-to-action l)
+  (cond ((atom? (car l))
+         (cond ((eq? 'lambda (car l))
+                *lambda)
+               ((eq? 'cond (car l))
+                *cond)
+               ((eq? 'quote (car l))
+                *quote)
+               (else *application)))
+        (else *application)))
+
+(define (expression-to-action e)
+  (lambda (e)
+    (cond ((atom? e) (atom-to-action e))
+          (else (list-to-action e)))))
+
+(define (meaning e table)
+  ((expression-to-action e) e table))
+
+(define (val e)
+  (expression-to-action e '()))
+
+(define (*const e table)
+  (cond ((number? e) e)
+        ((eq? '#f e) #f)
+        ((eq? '#t e) #t)
+        (else (build 'primative e))))
+
+(define (text-of e)
+  (car (cdr e)))
+
+(define (*quote e table)
+  (text-of e))
+
+(define (initial-table name)
+  (car '()))
+  
+(define (*identifier e table)
+  (lookup-in-table e table initial-table))
+
+(define (*lambda e table)
+  (build 'non-primative (cons table (cdr e))))
+
+(define question-of first)
+(define answer-of second)
+(define cond-lines-of cdr)
+(define (else? e)
+  (cond ((atom? (question-of e)) (eq? (question-of e) 'else))
+        (else #f)))
+
+(define (*cond e table)
+  (evcon (cond-lines-of e) table))
+
+(define (evcon lines table)
+  (cond ((else? (question-of (car lines)))
+         (meaning (answer-of (car lines)) table))
+        ((meaning (question-of (car lines)) table)
+         (meaning (answer-of (car lines)) table))
+        (else (evcon (cdr lines) table))))
+        
+(define (*application e table)
+  (e))
+
+;; how to design programs
+
+
+(define WHEEL_RADIUS 5)
+(define WHEEL (circle WHEEL_RADIUS "solid" "black"))
+(define WHEELS (overlay/offset WHEEL (* 10 WHEEL_RADIUS) 0 WHEEL))
+(define BODY
+  (rectangle (+ (* 2 WHEEL_RADIUS) (image-width WHEELS)) (image-height WHEELS) "solid" "red"))
+(define WHEELS_BODY
+  (overlay/offset WHEELS 0 (/ (* -1 (image-height WHEELS)) 2) BODY))
+(define TOP
+    (rectangle (/ (image-width BODY) 2) (image-height BODY) "solid" "red"))
+(define CAR (overlay/offset WHEELS_BODY 0 (* -1 (image-height BODY)) TOP))
+(define CAR_HALF_WIDTH (/ (image-width CAR) 2))
+
+(define TREE_HEAD (circle (* 4 WHEEL_RADIUS) "solid" "green"))
+(define TREE_BODY (rectangle (/ (image-width TREE_HEAD) 4) (image-height TREE_HEAD) "solid" "brown"))
+(define TREE (overlay/offset TREE_HEAD 0 (image-height TREE_HEAD) TREE_BODY))
+
+
+(define BACKGROUND (empty-scene 500 100))
+(define (move-car x) (place-image CAR x (/ (image-height BACKGROUND) 2) BACKGROUND))
+(define (move-car-with-tree x) (place-image TREE
+                                            (/ (image-width BACKGROUND) 2)
+                                            (- (image-height BACKGROUND) (/ (image-height TREE) 2))
+                                            (move-car x)))
+
+(define (scene-position pair) pair)
+(define (new-scene-pos percent) (* (sin (* percent 1.570796504)) (* (image-width BACKGROUND) 0.99)))
+(define (add-to-scene-position pair)
+  (new-scene-pos (/ (scene-position pair) (image-width BACKGROUND))))
+
+;(big-bang 0.1
+ ;           [to-draw (lambda (world) (move-car-with-tree (scene-position world))) ]
+  ;          [on-tick (lambda (world) (add-to-scene-position world))]
+   ;         [on-mouse (lambda (world x y type)
+    ;                    (cond ((eq? "button-down" type) x) (else world)))]
+     ;       [stop-when (lambda (x) (> (scene-position x) (image-width BACKGROUND) ))]
+      ;      )
 
 ;; OTHER
+
+(define (things f)
+   (letrec-values
+       (((listener) (tcp-listen 8000 5 #t))
+        ((in out) (tcp-accept listener)))
+     (f in out listener)))
 
 (define (prepend one two)
     (cond ((null? two) one)
