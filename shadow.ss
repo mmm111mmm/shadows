@@ -15,7 +15,7 @@
     (else #f)))
 
 (define (atom? a)
-  (or (symbol? a) (number? a)))
+  (or (symbol? a) (number? a) (eq? a #f) (eq? a #t)))
 
 (define (length lat)
     (cond
@@ -249,12 +249,14 @@
         ((or (null? l1) (null? l2)) #f)
         (else (and
                (equal? (car l1) (car l2))
-               (equal? (cdr l2) (cdr l2))))))
+               (equal? (cdr l1) (cdr l2))))))
+
+
 
 (define (equal? s1 s2)
   (cond ((and (atom? s1) (atom? s2)) (equan? s1 s2))
         ((or (atom? s1) (atom? s2)) #f)
-        (else (eqlist? (cdr s1) (cdr s2)))))
+        (else (eqlist? s1 s2))))
 
 (define (remberS lat s)
   (cond ((null? lat) '())
@@ -610,8 +612,7 @@
 
 
 (
- ((lambda (mk-len)
-   (mk-len mk-len))
+ ((lambda (mk-len) (mk-len mk-len))
   (lambda (mk-len)
     ((lambda (len)
        (lambda (l)
@@ -621,7 +622,9 @@
  '(a b c d e f g h i j k l m)
 )
 
-;; What is the value
+;; Chapter: What is the value
+
+;; tables and environments
 
 (define new-entry build)
 
@@ -641,6 +644,19 @@
                                (car table)
                                (lambda (name)
                                  (lookup-in-table name (cdr table) table-f))))))
+;; get meaning and value
+
+(define (val e)
+  (expression-to-action e '()))
+
+(define (meaning e table)
+  ((expression-to-action e) e table))
+
+(define (expression-to-action e)
+  (cond ((atom? e) (atom-to-action e))
+        (else (list-to-action e))))
+
+;; types of expressions
 
 (define (atom-to-action atom)
   (cond ((number? atom) *const)
@@ -665,19 +681,71 @@
                 *cond)
                ((eq? 'quote (car l))
                 *quote)
-               (else *application)))
+               (else
+                *application)))
         (else *application)))
 
-(define (expression-to-action e)
-  (lambda (e)
-    (cond ((atom? e) (atom-to-action e))
-          (else (list-to-action e)))))
+;; application - primative
 
-(define (meaning e table)
-  ((expression-to-action e) e table))
+(define function-of car)
+(define arguments-of cdr)
 
-(define (val e)
-  (expression-to-action e '()))
+(define (*application e table)
+  (apply
+   (meaning (function-of e) table)
+   (evlis (arguments-of e) table)))
+
+(define (evlis args table)
+  (cond ((null? args) '())
+        (else
+         (cons (meaning (car args) table) (evlis (cdr args) table)))))
+
+(define (primative? e)
+  (eq? (first e) 'primative))
+
+(define (non-primative? e)
+  (eq? (first e) 'non-primative))
+
+(define (apply fun args)
+  (cond ((primative? fun)
+         (apply-primative (second fun) args))
+        ((non-primative? fun)
+         (apply-closure (second fun) args))))
+
+(define (apply-primative fun args)
+  (cond ((eq? fun 'car)
+         (car (first args)))
+        ((eq? fun 'cdr)
+         (cdr (first args)))
+        ((eq? fun 'cons)
+         (cons (first args) (second args)))))
+        
+
+;; lambda
+
+(define (*lambda e table)
+  (build 'non-primative (cons table (cdr e))))
+
+;; application - non primative / lambda
+
+(define (body-of e)
+  (car (cdr (cdr e))))
+
+(define (formals-of e)
+  (car (cdr e)))
+
+(define (table-of e)
+  (car e))
+
+(define (apply-closure closure args)
+  (meaning (body-of closure)
+           (extend-table
+            (new-entry
+             (formals-of closure)
+             args)
+            (table-of closure))))
+
+;; const
 
 (define (*const e table)
   (cond ((number? e) e)
@@ -685,20 +753,23 @@
         ((eq? '#t e) #t)
         (else (build 'primative e))))
 
-(define (text-of e)
-  (car (cdr e)))
-
-(define (*quote e table)
-  (text-of e))
+;; identifier
 
 (define (initial-table name)
   (car '()))
-  
+
 (define (*identifier e table)
   (lookup-in-table e table initial-table))
 
-(define (*lambda e table)
-  (build 'non-primative (cons table (cdr e))))
+;; quote
+
+(define (text-of e)
+  (car (cdr e)))
+
+(define (*quote e table)(
+  (text-of e)))
+
+;; cond
 
 (define question-of first)
 (define answer-of second)
@@ -707,21 +778,203 @@
   (cond ((atom? (question-of e)) (eq? (question-of e) 'else))
         (else #f)))
 
-(define (*cond e table)
-  (evcon (cond-lines-of e) table))
-
 (define (evcon lines table)
   (cond ((else? (question-of (car lines)))
          (meaning (answer-of (car lines)) table))
         ((meaning (question-of (car lines)) table)
          (meaning (answer-of (car lines)) table))
         (else (evcon (cdr lines) table))))
-        
-(define (*application e table)
-  (e))
 
+(define (*cond e table)
+  (evcon (cond-lines-of e) table))
+
+;; the seasoned schemer
+
+(define (two-in-a-row? lat)
+  (cond ((null? lat) #f)
+        (else (or (two-in-a-row-helper (car lat) (cdr lat))
+                  (two-in-a-row? (cdr lat))))))
+
+(define (two-in-a-row-helper l lat)
+  (cond ((null? lat) #f)
+        (else (eq? l (car lat)))))
+
+(two-in-a-row? '(one one))
+
+(define (two-in-a-row-two? lat)
+  (cond ((null? lat) #f)
+        (else (two-in-a-row-two-helper (car lat) (cdr lat)))))
+
+(define (two-in-a-row-two-helper l lat)
+  (cond ((null? lat) #f)
+        (else (or (eq? l (car lat)) (two-in-a-row-two? (cdr lat))))))
+
+(two-in-a-row-two? '(two two))
+
+(define (two-in-a-row-three? lat)
+  (cond ((null? lat) #f)
+        (else (two-in-a-row-three-helper (car lat) (cdr lat)))))
+
+(define (two-in-a-row-three-helper preceding lat)
+  (cond ((null? lat) #f)
+        (else (or (eq? preceding (car lat)) (two-in-a-row-three-helper (car lat) (cdr lat))))))
+
+(two-in-a-row-two? '(three three))
+
+(define (sum-of-prefixes preceding lat)
+  (cond ((null? lat) '())
+        (else (cons (+ (car lat) preceding) (sum-of-prefixes (+ (car lat) preceding) (cdr lat))))))
+
+(sum-of-prefixes 0 '(1 1 1))
+
+;; hop skip jump
+
+(define (member-new? lat a)
+  (cond ((null? lat) #f)
+        (else (or
+               (eq? (car lat) a)
+               (member-new? (cdr lat) a)))))
+
+(define (intersect-new s1 s2)
+  (letrec ((isect (lambda (s)
+                        (cond ((null? s) '())
+                              ((member-new? s1 (car s)) (cons (car s) (isect (cdr s))))
+                              (else (isect (cdr s)))))))
+    (isect s2)))
+
+(intersect-new '(a b c) '(a z z))
+
+(define (intersect-all-new lset)
+  (letrec ((isetall (lambda (lset)
+                    (cond ((null? (cdr lset)) (car lset))
+                          (else (intersect-new (car lset)
+                                               (isetall (cdr lset))))))))
+    (cond ((null? lset) '())
+          (else (isetall lset)))))
+
+(intersect-all-new '((a z c)(a e z)) )
+
+(define (intersect-all-cc lset)
+  (call-with-current-continuation
+   (lambda (hop)
+     (letrec
+         ((isetall (lambda (lset)
+                     (cond
+                       ((null? (car lset)) (hop '()))
+                       ((null? (cdr lset)) (car lset))   
+                       (else (intersect-new (car lset)
+                                            (isetall (cdr lset))))))))
+       (cond ((null? lset) '())
+             (else (isetall lset)))))))
+
+(intersect-all-cc '((y z c)(a e y)) )
+
+(define (intersect-all-cc-two lset)
+  (call-with-current-continuation
+   (lambda (hop)
+     (letrec
+         ((intersect (lambda (s1 s2)
+                       (letrec ((isect (lambda (s)
+                                         (cond ((null? s) '())
+                                               ((member-new? s2 (car s)) (cons (car s) (isect (cdr s))))
+                                               (else (isect (cdr s)))))))
+                         (cond ((null? s2) (hop '(none)))
+                               (else (isect s1))))))
+          (isetall (lambda (lset)
+                     (cond
+                       ((null? (car lset)) (hop '(empty-set)))
+                       ((null? (cdr lset)) (car lset))   
+                       (else (intersect (car lset)
+                                        (isetall (cdr lset))))))))
+       (cond ((null? lset) '())
+             (else (isetall lset)))))))
+
+(intersect-all-cc-two '((y z c)()(a e p)))
+(intersect-all-cc-two '((y z c)(i d j)(a e p)))
+
+(define (rember-rec atom lat)
+  (letrec ((R (lambda (lat)  
+                (cond ((null? lat) '())
+                      ((eq? atom (car lat)) (cdr lat))
+                      (else (cons (car lat) (R (cdr lat))))))))
+    (R lat)))
+
+(rember-rec 'a '(b a c))
+
+(define (rember-beyond-first atom lat)
+  (letrec ((R (lambda (lat)
+                (cond ((null? lat) '())
+                      ((eq? atom (car lat)) '())
+                      (else (cons (car lat) (R (cdr lat))))))))
+    (R lat)))
+
+(rember-beyond-first 'c '(b a c d g))
+(rember-beyond-first 'z '(b a c d g))
+
+(define (rember-upto-last atom lat)
+  (call-with-current-continuation
+   (lambda (skip)
+     (letrec ((R (lambda (lat)
+                   (cond ((null? lat) '())
+                         ((eq? atom (car lat)) (skip (R (cdr lat))))
+                         (else (cons (car lat) (R (cdr lat))))))))
+       (R lat)))))
+
+(rember-upto-last 'c '(a b c d e))
+(rember-upto-last 'c '(a b c d e c z x))
+(rember-upto-last 'z '(a b c d e))
+
+;; Let there be names
+
+(define (leftmost-new lat)
+  (cond ((null? lat) '())
+        ((atom? (car lat)) (car lat))
+        (else
+         (let ((leftmost-car (leftmost-new (car lat))))
+           (cond ((atom? leftmost-car) leftmost-car)
+                 (else
+                  (leftmost-new (cdr lat))))))))
+
+(leftmost-new '(a b c))
+(leftmost-new '(((a)) b c))
+(leftmost-new '((() b) c))
+(leftmost-new '((()()) c))
+
+(define (rember1* atom l)
+  (letrec ((R (lambda (l)
+                (cond ((null? l) '())
+                      ((atom? (car l))
+                       (cond ((eq? atom (car l))
+                              (cdr l))
+                             (else (cons (car l) (R (cdr l))))))
+                      (else
+                       (let ((R-car (R (car l))))
+                         (cond ((eqlist? (car l) R-car)
+                                (cons R-car (R (cdr l))))
+                               (else (cons R-car (cdr l))))))))))
+    (R l)))
+
+(rember1* 'b '(a (b c) d))
+(rember1* 'c '(a (b c) d))
+
+(define (depth* l)
+  (cond ((null? l) 1)
+        ((atom? (car l))
+         (depth* (cdr l)))
+        (else
+         (let ((depth-car (add1 (depth* (car l))))
+               (depth-cdr (depth* (cdr l))))
+           (cond
+             ((> depth-car depth-cdr) depth-car)
+             (else depth-cdr))))))
+
+(depth* '(a a) )
+(depth* '(a (a) a) )
+(depth* '((pickled)
+          peppers
+          (peppers pickled)))
+                
 ;; how to design programs
-
 
 (define WHEEL_RADIUS 5)
 (define WHEEL (circle WHEEL_RADIUS "solid" "black"))
