@@ -973,7 +973,130 @@
 (depth* '((pickled)
           peppers
           (peppers pickled)))
-                
+(depth* '(()
+          ((bitter butter)
+           (makes)
+           (batter (bitter)))
+          butter))
+
+(define (depth-max* l)
+  (cond ((null? l) 1)
+        ((atom? (car l))
+         (depth-max* (cdr l)))
+        (else
+         (max (add1 (depth-max* (car l)))
+              (depth-max* (cdr l))))))
+
+(define (leftmost-cc lat)
+  (letrec ((fn (lambda (lat skip) 
+               (cond ((null? lat) '())
+                     ((atom? (car lat)) (skip (car lat)))
+                     (else
+                      (let ()
+                        (fn (car lat) skip)
+                        (fn (cdr lat) skip)))))))
+   (call/cc (lambda (skip)
+     (fn lat skip)))))
+
+(leftmost-cc '(((a)) b (c)) )
+
+(define (leftmost-cc-pretty lat)
+  (call/cc
+   (lambda (skip)
+     (letrec ((fn (lambda (lat) 
+                    (cond ((null? lat) '())
+                          ((atom? (car lat)) (skip (car lat)))
+                          (else
+                           (let ()
+                             (fn (car lat))
+                             (fn (cdr lat))))))))
+       (fn lat)))))
+
+(leftmost-cc-pretty '(((z)) b (c)) )
+
+(define (rember1*-new atom l)
+  (letrec ((R (lambda (l skip)
+                (cond ((null? l) (skip 'no))
+                      ((atom? (car l))
+                       (cond ((eq? atom (car l))
+                              (cdr l))
+                             (else (cons (car l) (R (cdr l) skip)))))
+                      (else
+                       (let ((R-car (call/cc (lambda (skip) (R (car l) skip)))))
+                         (if (atom? R-car)
+                             (cons (car l) (R (cdr l) skip))
+                             (cons R-car (cdr l)))))))))
+    (call/cc (lambda (success)
+               (call/cc (lambda (fail)
+                          (success (R l fail))))
+               l))))
+
+(rember1*-new 'noodles '((food) more (food)))
+(rember1*-new 'noodles '((food) more (noodles)))
+
+(define x '())
+(define food 'stuff)
+
+(define (dinerR food)
+  (set! x food)
+  (cons 'milkshake
+        (cons food
+              '())))
+
+
+(dinerR 'onion)
+(displayln x)
+
+(define (chez-nous)
+  (let ((temp food))
+    (set! food x)
+    (set! x temp)))
+
+
+(displayln food)
+(displayln x)
+
+(chez-nous)
+
+(displayln food)
+(displayln x)
+
+(define ingredients '())
+
+(define (sweet-toothL food)
+  (set! ingredients (cons food ingredients))
+  (cons food
+        (cons 'cake '())))
+
+(sweet-toothL 'chocolate)
+(sweet-toothL 'peacan)
+(sweet-toothL 'pie)
+
+(displayln ingredients)
+
+(define (deep n)
+  (cond ((zero? n) 'pizza)
+        (else (cons (deep (sub1 n)) '()))))
+
+(displayln (deep 0))
+(displayln (deep 3))
+
+(define Ns '())
+(define Rs '())
+
+(define (deepR n)
+  (let ((deep (deep n)))
+    (set! Ns (cons n Ns))
+    (set! Rs (cons deep Rs))
+    deep))
+
+(displayln (deepR 3))
+(displayln (deepR 7))
+(displayln Ns)
+(displayln Rs)
+     
+
+
 ;; how to design programs
 
 (define WHEEL_RADIUS 5)
