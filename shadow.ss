@@ -1043,7 +1043,6 @@
         (cons food
               '())))
 
-
 (dinerR 'onion)
 (displayln x)
 
@@ -1051,7 +1050,6 @@
   (let ((temp food))
     (set! food x)
     (set! x temp)))
-
 
 (displayln food)
 (displayln x)
@@ -1095,7 +1093,82 @@
 (displayln Ns)
 (displayln Rs)
      
+(define (find-deep n Ns Rs)
+  (letrec ((fn (lambda (nums reses)
+                 (cond ((= (car nums) n) (car reses))
+                       (else (fn (cdr nums) (cdr reses)))))))
+    (fn Ns Rs)))
 
+(find-deep 4 '(3 4 1) '((a)(b)(c)))
+
+(define (deepM n)
+  (letrec ((deepfn (lambda (n)
+                     (cond ((zero? n) 'pizza)
+                           (else (cons (deepM (sub1 n)) '()))))))
+           (cond ((member? Ns n) (find-deep n Ns Rs))
+                 (else
+                  (let ((deep (deepfn n)))
+                    (set! Ns (cons n Ns))
+                    (set! Rs (cons deep Rs))
+                    deep)))))
+
+(displayln (deepM 3))
+(displayln Ns)
+(displayln Rs)
+
+(displayln (deepM 1))
+(displayln Ns)
+(displayln Rs)
+
+(define deepM-closure
+  (let ((Ns '())
+        (Rs '()))
+    (lambda (n)
+      (letrec ((deepfn (lambda (n)
+                         (cond ((zero? n) 'pizza)
+                               (else (cons (deepM-closure (sub1 n)) '()))))))
+        (cond ((member? Ns n) (find-deep n Ns Rs))
+              (else
+               (let ((deep (deepfn n)))
+                 (set! Ns (cons n Ns))
+                 (set! Rs (cons deep Rs))
+                 deep)))))))
+
+(displayln (deepM-closure 3))
+(displayln (deepM-closure 1))
+
+(define showNs 0)
+(define showRs 0)
+
+(define deepM-better-find-closure
+  (let ((Ns '())
+        (Rs '()))
+    (lambda (n)
+      (letrec ((findfn (lambda (n Ns Rs)
+                         (letrec ((fn (lambda (Ns Rs)
+                                             (cond ((null? Ns) #f)
+                                                   ((= (car Ns) n) (car Rs))
+                                                   (else (findfn n (cdr Ns) (cdr Rs)))))))
+                           (fn Ns Rs))))
+               (deepfn (lambda (n)
+                         (cond ((zero? n) 'pizza)
+                               (else (cons (deepM-better-find-closure (sub1 n)) '()))))))
+        (let ((found (findfn n Ns Rs)))
+          (if (atom? found)
+              (let ((deep (deepfn n)))
+                (set! Ns (cons n Ns))
+                (set! Rs (cons deep Rs))
+                (set! showNs (lambda () Ns))
+                (set! showRs (lambda () Rs))
+                deep)
+              found))))))
+
+(displayln (deepM-better-find-closure 3))
+(displayln (showNs))
+(displayln (showRs))
+(displayln (deepM-better-find-closure 1))
+(displayln (showNs))
+(displayln (showRs))
 
 ;; how to design programs
 
