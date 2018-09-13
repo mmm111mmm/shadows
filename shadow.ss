@@ -622,6 +622,18 @@
  '(a b c d e f g h i j k l m)
 )
 
+(define (Y F)
+ ((lambda (mk-len) (mk-len mk-len))
+  (lambda (mk-len)
+    (F (lambda (x) ((mk-len mk-len) x)))))
+)
+
+((Y (lambda (f)
+      (lambda (l)
+        (cond ((null? l) 0)
+              (else (add1 (f (cdr l))))))))
+ '(a b c))
+
 ;; Chapter: What is the value
 
 ;; tables and environments
@@ -1059,6 +1071,8 @@
 (displayln food)
 (displayln x)
 
+;; Ready, Set, Bang!
+
 (define ingredients '())
 
 (define (sweet-toothL food)
@@ -1144,16 +1158,14 @@
   (let ((Ns '())
         (Rs '()))
     (lambda (n)
-      (letrec ((findfn (lambda (n Ns Rs)
-                         (letrec ((fn (lambda (Ns Rs)
-                                             (cond ((null? Ns) #f)
-                                                   ((= (car Ns) n) (car Rs))
-                                                   (else (findfn n (cdr Ns) (cdr Rs)))))))
-                           (fn Ns Rs))))
+      (letrec ((findfn (lambda (Ns Rs)                         
+                         (cond ((null? Ns) #f)
+                               ((= (car Ns) n) (car Rs))
+                               (else (findfn (cdr Ns) (cdr Rs))))))
                (deepfn (lambda (n)
                          (cond ((zero? n) 'pizza)
                                (else (cons (deepM-better-find-closure (sub1 n)) '()))))))
-        (let ((found (findfn n Ns Rs)))
+        (let ((found (findfn Ns Rs)))
           (if (atom? found)
               (let ((deep (deepfn n)))
                 (set! Ns (cons n Ns))
@@ -1169,6 +1181,269 @@
 (displayln (deepM-better-find-closure 1))
 (displayln (showNs))
 (displayln (showRs))
+
+(
+ (let ((f (lambda (arg) '())))
+   (set! f
+         (lambda (l)
+           (cond ((null? l) 0)
+                 (else (add1 (f (cdr l)))))))
+   f)
+ '(a b c)
+)
+
+(
+ ((lambda (F)
+    (let ((f (lambda (arg) '())))
+      (set! f (F (lambda (arg) (f arg))))
+      f))
+  (lambda (fn)
+    (lambda (l)
+      (cond ((null? l) 0)
+            (else (add1 (fn (cdr l))))))))
+ '(a b c)
+ )
+
+(define Y!
+  (lambda (fn)
+    (let ((f (lambda (arg) 0)))
+      (set! f (fn (lambda (arg) (f arg))))
+      f)))
+
+(define Y-bang
+  (lambda (fn)
+    (letrec ((f (fn (lambda (arg) (f arg)))))
+      f)))
+
+((Y! (lambda (f)
+      (lambda (l)
+        (cond ((null? l) 0)
+              (else (add1 (f (cdr l))))))))
+ '(a b c))
+
+((Y-bang (lambda (f)
+      (lambda (l)
+        (cond ((null? l) 0)
+              (else (add1 (f (cdr l))))))))
+ '(a b c))
+
+;; We Change, Therefor We Are!
+
+(define deepM-better-find-closure1
+  (let ((Ns '())
+        (Rs '())
+        (findfn (lambda (n Ns Rs)
+                  (letrec ((fn (lambda (Ns Rs)
+                                 (cond ((null? Ns) #f)
+                                       ((= (car Ns) n) (car Rs))
+                                       (else (fn (cdr Ns) (cdr Rs)))))))
+                    (fn Ns Rs)))))
+    (lambda (n)
+      (let ((found (findfn n Ns Rs)))
+        (if (atom? found)
+            (let ((deep (cond ((zero? n) 'pizza)
+                              (else (cons (deepM-better-find-closure1 (sub1 n)) '())))))
+              (set! Ns (cons n Ns))
+              (set! Rs (cons deep Rs))
+              deep)
+            found)))))
+
+(displayln (deepM-better-find-closure1 3))
+(displayln (deepM-better-find-closure1 1))
+
+(define counter '())
+(define set-counter '())
+
+(define consC
+  (let ((N 0))
+    (set! set-counter (lambda (x) (set! N x)))
+    (lambda (x y)
+      (set! N (add1 N))
+      (set! counter (lambda () N))
+      (cons x y))))
+
+(define (deep-with-c n)
+  (cond ((zero? n) 'pizza)
+        (else (consC (deep-with-c (sub1 n)) '()))))
+
+(deep-with-c 10)
+(displayln (counter))
+
+(define (supercounter f)
+  (letrec ((fn (lambda (n)
+                 (cond ((zero? n) (f n))
+                       (else (let ()
+                               (f n)
+                               (fn (sub1 n))))))))
+    (fn 1000)
+    (counter)))
+
+(displayln (supercounter deep-with-c))
+(set-counter 0)
+(displayln (supercounter deep-with-c))
+
+(define deepM-consc
+  (let ((Ns '())
+        (Rs '())
+        (findfn (lambda (n Ns Rs)
+                  (letrec ((fn (lambda (Ns Rs)
+                                 (cond ((null? Ns) #f)
+                                       ((= (car Ns) n) (car Rs))
+                                       (else (fn (cdr Ns) (cdr Rs)))))))
+                    (fn Ns Rs)))))
+    (lambda (n)
+      (let ((found (findfn n Ns Rs)))
+        (if (atom? found)
+            (let ((deep (cond ((zero? n) 'pizza)
+                              (else (consC (deepM-consc (sub1 n)) '())))))
+              (set! Ns (cons n Ns))
+              (set! Rs (cons deep Rs))
+              deep)
+            found)))))
+
+(set-counter 0)
+(displayln (supercounter deepM-consc))
+
+;; We change, therefore we are the same!
+
+(define (kons kar kdr)
+  (lambda (selector)
+    (selector kar kdr)))
+
+(define set-kounter '())
+(define kounter '())
+
+(define konsC
+  (let ((N 0))
+    (set! set-kounter (lambda (x) (set! N x)))
+    (lambda (x y)
+      (set! N (add1 N))
+      (set! kounter (lambda () N))
+      (kons x y))))
+
+(displayln (kons 'a '()))
+
+(displayln (konsC 'a '()))
+(displayln (kounter))
+(displayln (konsC 'a '()))
+(displayln (kounter))
+(set-kounter 0)
+(displayln (konsC 'a '()))
+(displayln (kounter))
+
+(define (kar kons)
+  (kons (lambda (ka kd) ka)))
+
+(displayln (kar (kons 'a '())))
+
+(define (kdr kons)
+  (kons (lambda (ka kd) kd)))
+
+(displayln (kdr (kons 'a '())))
+
+(define (lots n)
+  (cond ((zero? n) 'egg)
+        (else (konsC (lots (sub1 n)) '()))))
+
+(set-kounter 0)
+(lots 8)
+(displayln (kounter))
+
+(define (add-at-end l)
+  (cond ((null? (kdr l))
+         (konsC (kar l) (kons 'egg '())))
+        (else (konsC (kar l) (add-at-end (kdr l))))))
+
+(set-kounter 0)
+(add-at-end (kons 'egg (kons 'egg (kons 'egg '()))))
+(displayln 'eggs?)
+(displayln (kounter))
+
+(define (bons kar)
+  (let ((kdr '()))
+    (lambda (selector)
+      (selector (lambda (x) (set! kdr x))
+                kar
+                kdr))))
+
+(displayln (bons 'a))
+
+(define (bar bons)
+  (bons (lambda (setkdr kar kdr) kar)))
+
+(define (bdr bons)
+  (bons (lambda (setkdr kar kdr) kdr)))
+
+(displayln (bar (bons 'a)))
+(displayln (bdr (bons 'a)))
+
+(define (set-kdr bons value)
+  ((bons (lambda (setkdr kar kdr) setkdr)) value))
+
+(define (kons2 x y)
+  (let ((a (bons x)))
+    (set-kdr a y)
+    a))
+
+(displayln (bar (kons2 'hello '())))
+
+(set-kounter 0)
+(define dozen (lots 12))
+(displayln (kounter))
+(define bakers-dozen (add-at-end (lots 12)))
+(displayln (kounter))
+
+;; Absconding with the jewels
+
+(define (deep3 m)
+  (cond ((zero? m) 'pizza)
+        (else (cons (deep3 (sub1 m)) '()))))
+
+(displayln (deep3 6))
+
+(define (six-layers t)
+  (cons
+   (cons
+    (cons
+     (cons
+      (cons
+       (cons t '())
+       '())
+     '())
+    '())
+   '())
+  '()))
+
+(displayln (six-layers 'mozzarella))
+
+(define toppings '())
+
+(define (deepB m)
+  (cond ((zero? m) (call/cc (lambda (jump)
+                              (set! toppings jump)
+                              'pizza)))
+        (else (cons (deepB (sub1 m)) '()))))
+
+(deepB 3)
+(toppings 'water)
+(cons (toppings 'water) '())
+
+(let ((thing (toppings 'water)))
+  (cons 'hi thing))
+
+(let ()
+  (toppings 'more-water)
+  'hi)
+
+(define (deep&co n c)
+  (cond ((zero? n) (c 'pizza))
+        (else
+         (deep&co (sub1 n)
+                  (lambda (prev) (c (cons prev '())))))))
+
+(deep&co 4 (lambda (v) v))
+
+
 
 ;; how to design programs
 
