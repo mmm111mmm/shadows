@@ -1443,7 +1443,105 @@
 
 (deep&co 4 (lambda (v) v))
 
+(define toppings2 '())
 
+(define (deep&coB n c)
+  (cond ((zero? n)
+         (let ()
+           (set! toppings2 c)
+           (c 'pizza)))
+        (else
+         (deep&coB (sub1 n)
+                  (lambda (prev) (c (cons prev '())))))))
+
+(deep&coB 4 (lambda (x) x))
+
+(let ((thing (toppings2 'water)))
+  (cons 'hi thing))
+
+(define (walk l)
+  (cond ((null? l) '())
+        ((atom? (car l))
+         (leave (car l)))
+        (else
+         (let ()
+           (walk (car l))
+           (walk (cdr l))))))
+
+(define leave (lambda (x) x))
+(walk '((()) z b c))
+
+(define (start-it l)
+  (call/cc (lambda (here)
+             (set! leave here)
+             (walk l))))
+
+(start-it '((()) c b))
+
+(define fill '())
+
+(define (waddle l)
+  (cond ((null? l) '())
+        ((atom? (car l))
+         (let ()
+           (call/cc (lambda (rest)
+                      (set! fill rest)
+                      (leave (car l))))
+           (waddle (cdr l))))
+        (else
+         (let ()
+           (waddle (car l))
+           (waddle (cdr l))))))
+
+ 
+(define (start-it2 l)
+  (call/cc (lambda (here)
+             (set! leave here)
+             (waddle l))))
+
+(start-it2 '((donuts) (cheerios (cheerios) (spaghettios))))
+
+(define (get-next x)
+  (call/cc (lambda (here-again)
+             (set! leave here-again)
+             (fill 'go))))
+
+(define (two-in-a-row* l)
+  (letrec ((leave (lambda () '()))
+           (fill (lambda () '()))
+           (get-next (lambda ()
+                       (call/cc (lambda (here-again)
+                                  (set! leave here-again)
+                                  (fill 'go)))))
+           (compare-nexts (lambda (a)
+                            (let ((n (get-next)))
+                              (if (atom? n)
+                                  (or (eq? n a)
+                                      (compare-nexts n))
+                                  #f))))
+           (find-next-atom (lambda (l)
+                             (cond ((null? l) '())
+                                   ((atom? (car l))
+                                    (let ()
+                                      (call/cc (lambda (rest)
+                                                 (set! fill rest)
+                                                 (leave (car l))))
+                                      (find-next-atom (cdr l))))
+                                   (else
+                                    (let ()
+                                      (find-next-atom (car l))
+                                      (find-next-atom (cdr l))))))))
+    (let ((first-atom (call/cc (lambda (exit)
+                                 (set! leave exit)
+                                 (find-next-atom l)
+                                 (leave '())))))
+      (if (atom? first-atom)
+          (compare-nexts first-atom)
+          #f))))
+
+(two-in-a-row* '((i think) i have (seen this) before ((() before))))
+(two-in-a-row* '((i think) i have (seen this) before ((() right))))
+(two-in-a-row* '())
 
 ;; how to design programs
 
