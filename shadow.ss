@@ -1543,6 +1543,33 @@
 (two-in-a-row* '((i think) i have (seen this) before ((() right))))
 (two-in-a-row* '())
 
+;; interlude - reimplementation of a basic lisp interpreter
+
+(define (ev l)
+    (letrec ((1st (lambda (l) (car l)))
+             (2nd (lambda (l) (car (cdr l))))
+             (3rd (lambda (l) (car (cdr (cdr l)))))
+             (evcond          (lambda (lines)
+                                (cond ((eq? (1st (1st lines)) 'else)   (ev (2nd (1st lines))))
+                                      ((eq? (ev (1st (1st lines))) #t) (ev (2nd (1st lines))))
+                                      (else                            (evcond (cdr lines)))))))
+      (cond ((number? l) l)
+            ((eq? l '#f) #f)
+            ((eq? l '#t) #t)
+            (else
+             (cond ((eq? (1st l) 'q)       (2nd l))
+                   ((eq? (1st l) 'cons)    (cons (ev (2nd l)) (ev (3rd l))))
+                   ((eq? (1st l) 'car)     (car (ev (2nd l))))
+                   ((eq? (1st l) 'cdr)     (cdr (ev (2nd l))))
+                   ((eq? (1st l) 'add1)    (add1 (ev (2nd l))))
+                   ((eq? (1st l) 'sub1)    (sub1 (ev (2nd l))))
+                   ((eq? (1st l) 'number?) (number? (ev (2nd l))))
+                   ((eq? (1st l) 'zero?)   (zero? (ev (2nd l))))
+                   ((eq? (1st l) 'null?)   (null? (ev (2nd l))))
+                   ((eq? (1st l) 'atom?)   (atom? (ev (2nd l))))
+                   ((eq? (1st l) 'cond)    (evcond (cdr l)))
+                   (else                   'panic-wildly))))))
+
 ;; how to design programs
 
 (define WHEEL_RADIUS 5)
